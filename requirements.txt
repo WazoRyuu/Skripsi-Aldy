@@ -1,0 +1,8 @@
+# Dependencies for the web app (Streamlit). Versions match the ones the shipped model was trained with.
+# If you retrain the model elsewhere (e.g. Colab), set these to the versions printed in outputs/model_versions.txt.
+streamlit==1.66.1
+pandas==3.0.5
+numpy==2.5.3
+scikit-learn==1.9.1
+rapidfuzz==3.14.6
+joblib==1.6.0

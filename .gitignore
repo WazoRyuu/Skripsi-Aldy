@@ -1,0 +1,9 @@
+# NEVER commit applicant data or credentials
+*.xlsx
+*.xls
+*.csv
+!data/*.csv
+service_account*.json
+outputs/
+__pycache__/
+.venv/
