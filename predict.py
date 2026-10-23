@@ -16,7 +16,27 @@ from features import build_features  # noqa: E402
 from geo import GeoResolver  # noqa: E402
 from modeling import Explainer, explain_rows, prepare_X  # noqa: E402
 
-OUT_COLS = ["AI_Rekomendasi", "AI_Skor", "AI_Keyakinan", "AI_Jarak_km", "AI_Domisili_Terbaca", "AI_Alasan_Utama", "AI_Faktor_Lain"]
+OUT_COLS = ["AI_Rekomendasi", "AI_Skor", "AI_Keyakinan", "AI_Jarak_km", "AI_Domisili_Terbaca", "AI_Alasan_Utama", "AI_Faktor_Lain",
+            "AI_Catatan_Data"]
+
+
+def data_notes(f: pd.Series) -> str:
+    """Peringatan kualitas input (typo/kosong) supaya recruiter tahu kapan hasil perlu dicek manual."""
+    n = []
+    lvl = f.get("geo_level")
+    if lvl == "tidak_terbaca":
+        n.append("Domisili tidak terbaca - jarak tidak dihitung (diisi nilai tengah), cek manual")
+    elif lvl == "kabupaten_kota":
+        n.append(f"Kecamatan tidak terbaca - jarak dihitung dari pusat {f.get('geo_match')} (kurang presisi)")
+    elif f.get("geo_conf", 1) < 0.9:
+        n.append(f"Domisili dicocokkan otomatis ke {f.get('geo_match')} (kemiripan {f.get('geo_conf'):.0%}) - cek bila perlu")
+    if pd.isna(f.get("usia")):
+        n.append("Tanggal lahir tidak valid - usia diisi nilai tengah")
+    if pd.isna(f.get("nilai_norm")):
+        n.append("Nilai/IPK tidak terbaca - diisi nilai tengah")
+    if f.get("pend_level") == "Lainnya":
+        n.append("Pendidikan tidak dikenali")
+    return " | ".join(n)
 
 
 class Predictor:
@@ -45,6 +65,7 @@ class Predictor:
             "AI_Rekomendasi": res["rekomendasi"], "AI_Skor": res["skor"], "AI_Keyakinan": res["keyakinan"],
             "AI_Jarak_km": feat["jarak_km"].round(1), "AI_Domisili_Terbaca": feat["geo_match"],
             "AI_Alasan_Utama": res["alasan_utama"], "AI_Faktor_Lain": res["faktor_pertimbangan"],
+            "AI_Catatan_Data": [data_notes(feat.iloc[i]) for i in range(len(feat))],
         })
         return out
 

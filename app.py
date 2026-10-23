@@ -33,7 +33,6 @@ LAMA_KERJA = ["< 1 tahun", "1 - 3 tahun", "> 2 tahun"]
 DURASI = ["Fresh Graduated", "< 1 tahun", "1 - 3 tahun", "> 3 tahun"]
 TERAKHIR = ["Saya saat ini masih aktif bekerja", "3 - 6 bulan yang lalu", "> 3 bulan yang lalu", "> 6 bulan", "Fresh Graduated"]
 LAMA_EXP = ["< 1 tahun", "1 - 3 tahun", "> 3 tahun"]
-SUMBER = ["Rekan", "Kita Lulus", "Glints", "Pintarnya", "Instagram", "Lainnya"]
 
 st.set_page_config(page_title="Cek Peluang Interview", page_icon="📋", layout="centered")
 
@@ -142,7 +141,6 @@ lama_sales = c2.selectbox("Berapa lama (sales/marketing)?", LAMA_EXP, disabled=(
 c1, c2 = st.columns(2)
 pernah_crew = c1.radio("Pernah menjadi crew store (Alfamart/Indomaret dll)?", ["Tidak", "Ya"], horizontal=True)
 lama_crew = c2.selectbox("Berapa lama (crew store)?", LAMA_EXP, disabled=(pernah_crew == "Tidak"))
-sumber = st.selectbox("Tahu lowongan ini dari mana?", SUMBER)
 
 go = st.button("Cek peluang saya", type="primary", use_container_width=True)
 
@@ -158,7 +156,7 @@ if go:
         PREFIX["pernah_crew"]: pernah_crew, PREFIX["lama_crew"]: lama_crew if pernah_crew == "Ya" else "< 1 tahun",
         PREFIX["terakhir_kerja"]: terakhir, PREFIX["kuliah"]: kuliah,
         PREFIX["rencana_kuliah"]: "Sedang Berkuliah" if kuliah == "Ya" else rencana,
-        PREFIX["sumber"]: sumber, PREFIX["penempatan"]: placement or DEFAULT_PLACEMENT,
+        PREFIX["penempatan"]: placement or DEFAULT_PLACEMENT,
     }
     try:
         res = P.predict(pd.DataFrame([row]), placement=placement or DEFAULT_PLACEMENT).iloc[0]

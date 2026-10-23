@@ -88,7 +88,10 @@ def main(a):
             temporal[name] = dict(n_test=len(chk), pos_rate=float(yc.mean()), auc=roc_auc_score(yc, p), ap=average_precision_score(yc, p))
             print(f"[periode pembanding {CHECK_WINDOW[0][:7]}..{CHECK_WINDOW[1][:7]}] {name:7s} n={len(chk)} AUC={temporal[name]['auc']:.3f}")
     # pilih model terbaik berdasarkan AP CV (lalu AUC)
-    best = max(("logreg", "rf", "xgb"), key=lambda k: (results[k]["ap"] + results[k]["auc"]))
+    score = {k: results[k]["ap"] + results[k]["auc"] for k in ("logreg", "rf", "xgb")}
+    best = max(score, key=score.get)
+    if best != "logreg" and score[best] - score["logreg"] < 0.03:
+        best = "logreg"  # selisih kecil = masih dalam noise CV -> pilih model yang paling mudah dijelaskan & ringan di-deploy
     if a.model:
         best = a.model
     thr = results[best]["threshold"]
