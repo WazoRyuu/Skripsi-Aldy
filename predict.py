@@ -30,6 +30,8 @@ def data_notes(f: pd.Series) -> str:
         n.append(f"Kecamatan tidak terbaca - jarak dihitung dari pusat {f.get('geo_match')} (kurang presisi)")
     elif f.get("geo_conf", 1) < 0.9:
         n.append(f"Domisili dicocokkan otomatis ke {f.get('geo_match')} (kemiripan {f.get('geo_conf'):.0%}) - cek bila perlu")
+    if f.get("penempatan_ok", 1) == 0:
+        n.append("Lokasi penempatan tidak dikenal - jarak tidak dihitung (diisi nilai tengah); tambahkan di PLACEMENTS (src/geo.py)")
     if pd.isna(f.get("usia")):
         n.append("Tanggal lahir tidak valid - usia diisi nilai tengah")
     if pd.isna(f.get("nilai_norm")):

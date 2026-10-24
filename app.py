@@ -159,6 +159,7 @@ if go:
         PREFIX["penempatan"]: placement or DEFAULT_PLACEMENT,
     }
     try:
+        P.geo.placement_coord(placement or DEFAULT_PLACEMENT)  # validasi dulu supaya pesan error jelas
         res = P.predict(pd.DataFrame([row]), placement=placement or DEFAULT_PLACEMENT).iloc[0]
     except ValueError as e:  # lokasi penempatan tidak dikenal
         st.error(str(e))
