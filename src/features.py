@@ -18,7 +18,7 @@ HEADER_MAP = [
     ("nilai terakhir", "nilai"), ("nama perusahaan", "perusahaan"), ("bidang perusahaan", "bidang"),
     ("pengalaman kerja 3 thn terakhir di bagian", "bagian"), ("pengalaman kerja 3 thn terakhir di level", "level"),
     ("berapa lama bekerja di pengalaman terakhir", "lama_kerja_terakhir"),
-    ("jelaskan sekilas", "tanggung_jawab"), ("mengetahui loker", "sumber"), ("lampirkan curriculum", "cv"),
+    ("jelaskan sekilas", "tanggung_jawab"), ("lampirkan curriculum", "cv"),
     ("dari semua pengalaman kerja anda berapa durasi", "durasi_terlama"),
     ("dari semua pengalaman kerja anda yang paling lama", "jabatan_terlama"),
     ("apakah pernah memiliki pengalaman sales", "pernah_sales"),
@@ -39,7 +39,7 @@ BIN_FEATURES = [
     "menikah", "punya_anak", "pernah_sales", "pernah_crew", "kuliah_sekarang", "rencana_kuliah",
     "jabatan_sales_like", "jabatan_tele_like", "jabatan_collection_like", "lokasi_presisi", "dekat_10km",
 ]
-CAT_FEATURES = ["pend_level", "bidang", "bagian", "level", "sumber", "terakhir_kerja"]
+CAT_FEATURES = ["pend_level", "bidang", "bagian", "level", "terakhir_kerja"]
 FEATURES = NUM_FEATURES + BIN_FEATURES + CAT_FEATURES
 
 # Dikecualikan SENGAJA dari model: jenis kelamin, kehamilan, tempat lahir, nama/KTP/HP/email (identitas / diskriminatif).
@@ -104,14 +104,21 @@ def parse_nilai(x) -> float:
 
 def pend_level(x) -> str:
     v = _s(x).lower()
-    for key, lab in (("s2", "S2"), ("s1", "S1"), ("d4", "D4"), ("d3", "D3"), ("d1", "D1"), ("d2", "D2")):
+    v = re.sub(r"\bstrata\s*([12])\b", r"s\1", v)
+    v = re.sub(r"\bdiploma\s*(iv|iii|ii|i|[1-4])\b", lambda m: "d" + {"i": "1", "ii": "2", "iii": "3", "iv": "4"}.get(m.group(1), m.group(1)), v)
+    v = re.sub(r"\b([sd])[\s\-.]+([1-4])\b", r"\1\2", v)  # "S-1", "S 1", "D 3" -> "s1", "d3"
+    for key, lab in (("s3", "S2"), ("s2", "S2"), ("s1", "S1"), ("d4", "D4"), ("d3", "D3"), ("d1", "D1"), ("d2", "D2")):
         if re.search(rf"\b{key}\b", v):
             return lab
+    if re.search(r"\b(sarjana|bachelor)\b", v):
+        return "S1"
+    if re.search(r"\b(magister|master)\b", v):
+        return "S2"
     if "kuliah" in v or "mahasiswa" in v:
         return "Sedang Kuliah"
-    if "sma" in v or "smk" in v or "ma" == v:
+    if re.search(r"\b(sma|smk|smu|slta|stm|man|ma|smea|sma/smk|sma smk)\b", v) or "sma" in v or "smk" in v:
         return "SMA/SMK"
-    if "smp" in v:
+    if re.search(r"\b(smp|sltp|mts)\b", v) or "smp" in v:
         return "SMP"
     return "Lainnya"
 
@@ -119,6 +126,21 @@ def pend_level(x) -> str:
 def _kw(x, words) -> float:
     v = _s(x).lower()
     return float(any(w in v for w in words))
+
+
+def _parse_dt(s) -> pd.Series:
+    """ISO (2024-06-05 10:00:00) dibaca year-first; format lain (05/06/2024) dibaca day-first. Tanpa warning."""
+    s = pd.Series(s) if not isinstance(s, pd.Series) else s
+    if pd.api.types.is_datetime64_any_dtype(s):
+        return s
+    txt = s.astype(str).str.strip()
+    iso = txt.str.match(r"^\d{4}-\d{1,2}-\d{1,2}")
+    out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+    if iso.any():
+        out[iso] = pd.to_datetime(txt[iso], errors="coerce")
+    if (~iso).any():
+        out[~iso] = pd.to_datetime(txt[~iso], errors="coerce", dayfirst=True)
+    return out
 
 
 def build_features(raw: pd.DataFrame, geo: GeoResolver | None = None, placement_default: str = "Cisauk") -> pd.DataFrame:
@@ -132,8 +154,7 @@ def build_features(raw: pd.DataFrame, geo: GeoResolver | None = None, placement_
     geo = geo or GeoResolver()
     out = pd.DataFrame(index=df.index)
 
-    ts = pd.to_datetime(df.get("ts"), errors="coerce", dayfirst=True)
-    lahir = pd.to_datetime(df.get("tgl_lahir"), errors="coerce", dayfirst=True)
+    ts, lahir = _parse_dt(df.get("ts")), _parse_dt(df.get("tgl_lahir"))
     usia = ((ts.fillna(pd.Timestamp.today()) - lahir).dt.days / 365.25)
     out["usia"] = usia.where(usia.between(16, 65))
 
@@ -149,17 +170,17 @@ def build_features(raw: pd.DataFrame, geo: GeoResolver | None = None, placement_
     plc = df["penempatan"].map(_s).replace("", placement_default) if "penempatan" in df else placement_default
     plc = plc if isinstance(plc, pd.Series) else pd.Series(plc, index=df.index)
     out["jarak_km"] = [geo.distance_km(a, b, p) for a, b, p in zip(g["lat"], g["lng"], plc)]
+    out["penempatan_ok"] = [0.0 if (isinstance(d, float) and np.isnan(d) and isinstance(a, float) and not np.isnan(a)) else 1.0
+                            for d, a in zip(out["jarak_km"], g["lat"])]
     out["lokasi_presisi"] = (g["level"] == "kecamatan").astype(float)
     out["dekat_10km"] = (out["jarak_km"] <= 10).astype(float)
     out.loc[out["jarak_km"].isna(), "dekat_10km"] = np.nan
-    out["geo_match"], out["geo_level"] = g["match"], g["level"]
+    out["geo_match"], out["geo_level"], out["geo_conf"] = g["match"], g["level"], g["conf"]
 
     out["pend_level"] = df["pend"].map(pend_level)
     out["nilai_norm"] = df["nilai"].map(parse_nilai)
     for c in ("bidang", "bagian", "level", "terakhir_kerja"):
         out[c] = df[c].map(_s).replace("", "Tidak diisi")
-    src = df["sumber"].map(_s).str.lower().replace("", "tidak diisi")
-    out["sumber"] = src.where(src.isin(["rekan", "kita lulus", "glints", "pintarnya", "instagram"]), "lainnya")
 
     out["lama_sales_ord"] = df["lama_sales"].map(_ord_years)
     out["lama_crew_ord"] = df["lama_crew"].map(_ord_years)

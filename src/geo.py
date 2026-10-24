@@ -17,7 +17,10 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 # Titik lokasi penempatan. None -> pakai centroid kecamatan bernama sama (mis. "Cisauk").
 # Kalau punya titik kantor yang presisi, isi (lat, lng), contoh: {"cisauk": (-6.3393, 106.6302)}
-PLACEMENTS: dict[str, tuple[float, float] | None] = {"cisauk": None}
+PLACEMENTS: dict[str, tuple[float, float] | None] = {
+    "cisauk": None,
+    "bsd": (-6.3017, 106.6530), "bsd city": (-6.3017, 106.6530),  # pusat BSD City (perkiraan); ganti dgn titik kantor bila ada
+}
 
 STOP = re.compile(
     r"\b(kabupaten|kab|kota|kotamadya|kecamatan|kec|kelurahan|kel|desa|provinsi|prov|"
@@ -165,7 +168,13 @@ class GeoResolver:
                 elif len(n) >= 5 and f" {n} " in padded:
                     cand[j] = 93.0
             if field_name in ("kecamatan", "kelurahan"):
-                for _n, sc, j in process.extract(t, names, scorer=fuzz.ratio, score_cutoff=86, limit=8):
+                cut = 80 if (keep and field_name == "kecamatan") else 86  # pool kecil (1 kab/kota) -> boleh lebih longgar
+                found = process.extract(t, names, scorer=fuzz.ratio, score_cutoff=cut, limit=8)
+                # kecocokan longgar (<86) hanya dipakai bila jelas unggul dari kandidat kedua; kalau ambigu (mis. "Cisouk"
+                # mirip Cisauk DAN Cisoka) jangan menebak -> jatuh ke pusat kab/kota + catatan di AI_Catatan_Data
+                if found and found[0][1] < 86 and len(found) > 1 and found[0][1] - found[1][1] < 5:
+                    found = []
+                for _n, sc, j in found:
                     if not (skip_admin and names[j] in self._admin_names):
                         cand[j] = max(cand.get(j, 0), sc)
             for j, sc in cand.items():
@@ -206,5 +215,8 @@ class GeoResolver:
     def distance_km(self, lat, lng, placement: str):
         if lat is None or lng is None or (isinstance(lat, float) and math.isnan(lat)):
             return float("nan")
-        plat, plng = self.placement_coord(placement)
+        try:
+            plat, plng = self.placement_coord(placement)
+        except ValueError:  # penempatan tak dikenal -> jangan hentikan seluruh batch; ditandai di AI_Catatan_Data
+            return float("nan")
         return haversine_km(lat, lng, plat, plng)
