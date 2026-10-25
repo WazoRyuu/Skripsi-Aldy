@@ -90,6 +90,35 @@ header[data-testid="stHeader"], #MainMenu, footer, [data-testid="stToolbar"], [d
 .stRadio [role="radiogroup"]{gap:6px 22px;}
 .stRadio label p{font-weight:400 !important;}
 
+/* warna widget dipaksa terang agar terbaca walaupun browser/Streamlit memakai tema gelap */
+.stApp{color-scheme:light;}
+.stApp, .stApp p, .stApp label, .stApp span{--text-color:var(--ink);}
+[data-testid="stSelectbox"] [role="group"], [data-testid="stNumberInputContainer"], [data-testid="stDateInputField"],
+[data-testid="stTextInputRootElement"]{background:#fff !important; border:1px solid var(--line) !important; border-radius:10px !important; min-height:46px;}
+[data-testid="stSelectbox"] [role="group"]:focus-within, [data-testid="stNumberInputContainer"]:focus-within, [data-testid="stDateInputField"]:focus-within,
+[data-testid="stTextInputRootElement"]:focus-within{border-color:var(--blue) !important; box-shadow:0 0 0 3px #d9e8fc;}
+[data-testid="stSelectbox"] input, [data-testid="stNumberInputField"], [data-testid="stDateInputField"] *, [data-testid="stTextInputRootElement"] input{
+  color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; caret-color:var(--blue);}
+[data-testid="stSelectbox"] input::placeholder, [data-testid="stNumberInputField"]::placeholder, [data-testid="stTextInputRootElement"] input::placeholder{
+  color:#8794a5 !important; -webkit-text-fill-color:#8794a5 !important; opacity:1;}
+[data-testid="stSelectbox"] svg, [data-testid="stNumberInputContainer"] svg, [data-testid="stDateInputField"] svg{color:#5b6878 !important; fill:#5b6878 !important;}
+[data-testid="stNumberInputContainer"] button{background:transparent !important; color:#5b6878 !important;}
+[data-testid="stSelectbox"]:has([aria-disabled="true"]) [role="group"], [data-testid="stSelectbox"] [role="group"][data-disabled="true"]{background:#f3f6f9 !important;}
+/* radio */
+[data-testid="stRadioOption"] p{color:var(--ink) !important;}
+[data-testid="stRadioOption"] > div > div:first-child{background:#fff !important; border:1.5px solid #9aa8b8 !important; border-radius:50%;}
+[data-testid="stRadioOption"][data-selected="true"] > div > div:first-child{background:var(--blue) !important; border-color:var(--blue) !important;}
+[data-testid="stRadioOption"][data-selected="true"] > div > div:first-child > div{background:#fff !important;}
+/* daftar pilihan dropdown */
+[data-testid="stSelectboxVirtualDropdown"]{background:#fff !important; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px rgba(20,40,70,.12);}
+[data-testid="stSelectboxVirtualDropdown"] *{background-color:transparent; color:var(--ink) !important;}
+[data-testid="stSelectboxVirtualDropdown"] [role="option"]{background:#fff !important;}
+[data-testid="stSelectboxVirtualDropdown"] [role="option"][data-hovered="true"], [data-testid="stSelectboxVirtualDropdown"] [role="option"][data-focused="true"],
+[data-testid="stSelectboxVirtualDropdown"] [role="option"][data-selected="true"]{background:#eaf2fc !important;}
+/* kalender */
+[role="dialog"]{background:#fff !important; color:var(--ink) !important;}
+[role="dialog"] *{color:var(--ink);}
+
 /* tombol */
 .stButton > button{border-radius:999px; height:46px; font-weight:600; font-size:15px; padding:0 30px; box-shadow:none;}
 .stButton > button[kind="primary"]{background:var(--blue); border:1px solid var(--blue); color:#fff;}
