@@ -30,7 +30,7 @@ python tests/test_pipeline.py                                              # tes
 ```
 
 ## Website Streamlit (standalone)
-Pelamar/recruiter mengisi form manual (pendidikan, riwayat kerja, domisili lewat dropdown provinsi → kab/kota → kecamatan, dll).
+Pelamar/recruiter mengisi form manual dalam 4 langkah (Data diri, Pendidikan, Pengalaman, Hasil; domisili lewat dropdown provinsi → kab/kota → kecamatan). Tampilan diatur lewat CSS di `app.py` dan tema di `.streamlit/config.toml` (tanpa emoji).
 Hasil: pesan peluang (tinggi / cukup baik / belum pasti / "Mohon maaf, ... belum sesuai") + jarak ke lokasi penempatan.
 Mode **Recruiter** (sidebar) menambah skor dan alasan rinci. Aplikasi **tidak terhubung ke database/Google Sheet**, tidak menyimpan
 input, dan tidak meminta nama/KTP/HP. Fitur baca CV belum ada (prioritas rendah).
@@ -124,3 +124,17 @@ tetapi paling mudah dijelaskan. Turunkan threshold bila lebih takut kehilangan k
 5. Jenis kelamin, kehamilan, tempat lahir, nama/KTP/HP **sengaja tidak dipakai**. Usia & status pernikahan dipakai karena
    merupakan persyaratan sebagian posisi PT XYZ (keputusan peneliti); pastikan sesuai kebijakan perusahaan.
 6. Alasan dari model bersifat **korelasi historis**, bukan sebab-akibat.
+
+
+## Data tambahan 2026 & form baru
+- `form_baru/` : Google Form baru khusus Tele Marketing (header rapi, dropdown baku, kolom label untuk recruiter). Lihat `form_baru/PANDUAN.md`.
+- `src/harmonize.py` + `build_training_data.py` : menyatukan 3 generasi form lama ke satu skema (lihat `docs/PENYAMAAN_HEADER.md`) dan membuat `laporan.md`.
+- Temuan: pola 2024 (AUC 0,70 dengan fitur inti) TIDAK terulang di data 2026 (AUC 0,46-0,55; transfer antar periode ~0,5). Jangan menggabung
+  2026 ke model sebelum proses seleksi 2026 dipahami dan label dari kolom `Status Seleksi Berkas` terkumpul.
+
+## Training ulang
+1. **Model yang sedang jalan (form lama / form baru):** `python train.py --data <jawaban.xlsx> --rekap Rekap_All.xlsx` (form lama, label dari rekap)
+   atau `python train.py --data <jawaban form baru.xlsx> --all-dates` (label dari kolom "Status Seleksi Berkas"). Hasil: `models/model_interview.joblib`
+   -> push ke GitHub (Streamlit dan Actions otomatis memakai yang baru).
+2. **Eksperimen dari Excel gabungan:** `python train_unified.py --excel Data_Latih_Tele_Marketing.xlsx --skenario 2024|2026|semua`
+   -> laporan AUC, akurasi vs baseline (tebakan kelas terbanyak), AUC dalam bulan yang sama, dan akurasi per cakupan keyakinan.

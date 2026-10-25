@@ -33,6 +33,8 @@ def _col(df: pd.DataFrame, prefix: str) -> pd.Series:
 def make_keys(df: pd.DataFrame) -> pd.Series:
     ts = _col(df, "timestamp").str.strip()
     ktp = _col(df, "nomor ktp").map(lambda x: re.sub(r"\D", "", x))
+    nik = _col(df, "nik").map(lambda x: re.sub(r"\D", "", x))  # header form baru
+    ktp = ktp.where(ktp != "", nik)
     nama = _col(df, "nama lengkap").str.strip().str.lower()
     return ts + "|" + ktp.where(ktp != "", nama)
 

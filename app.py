@@ -42,7 +42,7 @@ CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 :root{--blue:#0a66e0;--blue-dark:#0852b4;--ink:#1b2430;--muted:#6b7685;--line:#d4dce5;--bg:#eaf2f7;--card:#ffffff;}
-html, body, .stApp, .stApp *:not(svg):not(path){font-family:'Inter','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;}
+html, body, .stApp, .stApp *:not(svg):not(path):not([data-testid="stIconMaterial"]):not([data-testid="stExpanderIcon"]):not([class*="material"]){font-family:'Inter','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;}
 .stApp{background:var(--bg);color:var(--ink);}
 header[data-testid="stHeader"], #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"],
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"]{display:none !important;}
@@ -147,6 +147,7 @@ header[data-testid="stHeader"], #MainMenu, footer, [data-testid="stToolbar"], [d
 table.sum{width:100%; border-collapse:collapse; font-size:14px;}
 table.sum td{padding:8px 4px; border-bottom:1px solid #edf1f5; vertical-align:top;}
 table.sum td:first-child{color:var(--muted); width:46%;}
+[data-testid="stIconMaterial"],[data-testid="stExpanderIcon"],[class*="material-symbols"]{font-family:"Material Symbols Rounded","Material Icons" !important;}
 [data-testid="stExpander"]{border:1px solid #e3e9ef !important; border-radius:12px !important;}
 
 @media (max-width: 640px){

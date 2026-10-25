@@ -51,11 +51,17 @@ def cv_oof(name, X, y, repeats=5):
 
 def main(a):
     raw = pd.read_excel(a.data)
+    if not a.rekap and "Lanjut Interview" not in raw.columns:  # FORM BARU: label dari kolom "Status Seleksi Berkas" yang diisi recruiter
+        col = next((c for c in raw.columns if str(c).strip().lower().startswith("status seleksi berkas")), None)
+        if col is None:
+            raise SystemExit("Tidak ada label: beri --rekap Rekap_All.xlsx, atau pakai form baru dengan kolom 'Status Seleksi Berkas'.")
+        raw = raw[raw[col].astype(str).str.strip().ne("") & raw[col].notna()].copy()  # hanya yang sudah direview recruiter
+        raw["Lanjut Interview"] = raw[col].astype(str).str.strip().str.lower().str.startswith("lolos")
     if a.rekap:  # label ulang dari Rekap_All (No HP + nama), menggantikan kolom "Lanjut Interview" hasil XLOOKUP nama
         raw["Lanjut Interview"] = relabel(raw, a.rekap).astype(bool)
     geo = GeoResolver()
     feat = dedupe_applicants(build_features(raw, geo, DEFAULT_PLACEMENT))
-    rel = feat[in_windows(feat["_ts"], RELIABLE_WINDOWS)].reset_index(drop=True)
+    rel = (feat if a.all_dates else feat[in_windows(feat["_ts"], RELIABLE_WINDOWS)]).reset_index(drop=True)
     X, y = prepare_X(rel), rel["_y"].astype(int)
     print(f"Pelamar unik total={len(feat)} | dipakai (label andal)={len(rel)} | positif={y.sum()} ({y.mean():.1%})")
 
@@ -118,4 +124,5 @@ if __name__ == "__main__":
     ap.add_argument("--data", required=True)
     ap.add_argument("--rekap", help="path Rekap_All.xlsx untuk relabel lewat No HP")
     ap.add_argument("--model", choices=["logreg", "rf", "xgb"])
+    ap.add_argument("--all-dates", action="store_true", help="pakai semua tanggal (untuk form baru yang labelnya lengkap); default: hanya RELIABLE_WINDOWS")
     main(ap.parse_args())
