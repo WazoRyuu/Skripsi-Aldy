@@ -113,18 +113,20 @@ class GeoResolver:
         return out
 
     # ---------- utama ----------
-    def resolve(self, prov="", kab="", kec="", kel="", alamat=""):
-        key = tuple(map(norm, (prov, kab, kec, kel, alamat)))
+    def resolve(self, prov="", kab="", kec="", kel="", alamat="", alamat_w=0.4):
+        """alamat_w: bobot petunjuk kab/kota yang disebut di alamat. 0.4 (default) bila ada kolom kab/kota terpisah;
+        naikkan (mis. 0.9) bila HANYA ada alamat bebas."""
+        key = tuple(map(norm, (prov, kab, kec, kel, alamat))) + (alamat_w,)
         if key not in self._cache_res:
             self._cache_res[key] = self._resolve(*key)
         return self._cache_res[key]
 
-    def _resolve(self, prov_n, kab_n, kec_n, kel_n, alm_n):
+    def _resolve(self, prov_n, kab_n, kec_n, kel_n, alm_n, alamat_w=0.4):
         kota_hint = True if re.search(r"\bkota\b", kab_n) else False if re.search(r"\bkab(upaten)?\b", kab_n) else None
 
         reg_scores: dict[str, float] = {}
         for txt, w, hint in ((kab_n, 1.0, kota_hint), (prov_n, 0.8, None), (kec_n, 0.5, None),
-                             (kel_n, 0.4, None), (alm_n, 0.4, None)):
+                             (kel_n, 0.4, None), (alm_n, alamat_w, None)):
             for k, s in self._regency_candidates(txt, hint).items():
                 reg_scores[k] = max(reg_scores.get(k, 0), s * w)
 
@@ -205,12 +207,26 @@ class GeoResolver:
         key = norm(name)
         if PLACEMENTS.get(key):
             return PLACEMENTS[key]
+        t0 = strip_admin(key)
+        near = [(sc, not self._reg_by_code[k]["is_kota"], k) for k, sc in self._regency_candidates(key, None).items()
+                if sc >= 100 and k[:2] in ("31", "32", "36")]  # "Depok"/"Bekasi" = kota di Jabodetabek, bukan kecamatan Depok di Cirebon
+        if t0 and near:
+            near.sort(key=lambda x: (-x[0], x[1]))
+            reg = self._reg_by_code[near[0][2]]
+            return float(reg["lat"]), float(reg["lng"])
         r = [row for row in self._kec_rows if row["name_n"] == strip_admin(key)]
-        if not r:
-            raise ValueError(f"Lokasi penempatan '{name}' tidak ditemukan. Tambahkan koordinat di PLACEMENTS.")
-        pri = {"36": 0, "32": 1, "31": 2}
-        r.sort(key=lambda x: pri.get(x["prov"], 9))
-        return float(r[0]["lat"]), float(r[0]["lng"])
+        if r:
+            pri = {"36": 0, "32": 1, "31": 2}
+            r.sort(key=lambda x: pri.get(x["prov"], 9))
+            return float(r[0]["lat"]), float(r[0]["lng"])
+        # bukan nama kecamatan -> coba sebagai kab/kota ("Bekasi", "Jakarta Selatan"): pakai pusat kab/kota (kota diutamakan)
+        t = strip_admin(key)
+        cands = [(sc, not self._reg_by_code[k]["is_kota"], k) for k, sc in self._regency_candidates(key, None).items() if sc >= 92]
+        if t and cands:
+            cands.sort(key=lambda x: (-x[0], x[1]))
+            reg = self._reg_by_code[cands[0][2]]
+            return float(reg["lat"]), float(reg["lng"])
+        raise ValueError(f"Lokasi penempatan '{name}' tidak ditemukan. Tambahkan koordinat di PLACEMENTS.")
 
     def distance_km(self, lat, lng, placement: str):
         if lat is None or lng is None or (isinstance(lat, float) and math.isnan(lat)):

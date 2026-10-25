@@ -64,7 +64,6 @@ GROUPS = {
     "status_kerja": ["terakhir_kerja"],
     "kuliah": ["kuliah_sekarang", "rencana_kuliah"],
     "keluarga": ["menikah", "punya_anak"],
-    "sumber": ["sumber"],
 }
 FEATURE_TO_GROUP = {f: g for g, fs in GROUPS.items() for f in fs}
 
@@ -130,7 +129,7 @@ JARAK_LABELS = ["≤5 km", "5–10 km", "10–15 km", "15–20 km", "20–30 km"
 def compute_rates(feat: pd.DataFrame, y: pd.Series, min_n: int = 8) -> dict:
     """Tingkat lolos historis per kategori (untuk kalimat alasan yang berbasis data)."""
     rates = {"_avg": float(y.mean())}
-    for c in ("pend_level", "sumber", "terakhir_kerja", "bagian", "bidang"):
+    for c in ("pend_level", "terakhir_kerja", "bagian", "bidang"):
         g = pd.DataFrame({"v": feat[c].astype(str), "y": y.values}).groupby("v")["y"].agg(["mean", "size"])
         rates[c] = {k: (float(m), int(n)) for k, (m, n) in g.iterrows() if n >= min_n}
     b = pd.cut(feat["jarak_km"].clip(upper=1e8), JARAK_BINS, labels=JARAK_LABELS)
@@ -204,10 +203,6 @@ def reason_text(group: str, positive: bool, r: pd.Series, placement: str, rates:
     if group == "keluarga":
         return "Status pernikahan/keluarga sesuai profil yang umumnya lolos" if positive \
             else "Status pernikahan/keluarga kurang sesuai profil yang umumnya lolos"
-    if group == "sumber":
-        h = _hist(rates, "sumber", r["sumber"])
-        return f"Sumber informasi lowongan ({r['sumber']}) cenderung menghasilkan pelamar yang lolos{h}" if positive \
-            else f"Sumber informasi lowongan ({r['sumber']}) cenderung kurang menghasilkan pelamar yang lolos{h}"
     return group
 
 

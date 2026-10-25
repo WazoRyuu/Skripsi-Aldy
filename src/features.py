@@ -29,7 +29,23 @@ HEADER_MAP = [
     ("apakah saat ini dalam kondisi hamil", "hamil"), ("apakah anda sedang berkuliah", "kuliah"),
     ("apakah anda memiliki rencana", "rencana_kuliah"), ("tempat lahir", "tempat_lahir"),
     ("lokasi penempatan", "penempatan"), ("lanjut interview", "label"),
+    # ---- FORM BARU (form_baru/): header pendek & rapi; tetap dipetakan ke nama pendek yang sama ----
+    ("nik ktp", "ktp"), ("provinsi domisili", "prov"), ("kecamatan domisili", "kec"), ("kelurahan/desa domisili", "kel"),
+    ("nilai akhir", "nilai"), ("posisi/bagian terakhir", "bagian"), ("level jabatan terakhir", "level"),
+    ("lama bekerja di pekerjaan terakhir", "lama_kerja_terakhir"), ("durasi terlama di satu perusahaan", "durasi_terlama"),
+    ("jabatan terlama", "jabatan_terlama"), ("kapan terakhir bekerja", "terakhir_kerja"), ("sedang berkuliah", "kuliah"),
+    ("berencana kuliah", "rencana_kuliah"), ("link cv", "cv"),
+    ("pengalaman sales", "sales_exp"), ("pengalaman crew", "crew_exp"),
+    ("pengalaman telemarketing", "exp_tele_raw"), ("pengalaman multifinance", "exp_fin_raw"),
+    ("kemampuan microsoft office", "ms_office"), ("kesiapan bergabung", "siap_join"),
+    ("status seleksi berkas", "status_berkas"), ("tanggal interview", "tgl_interview"), ("hasil interview", "hasil_interview"),
+    ("catatan recruiter", "catatan_recruiter"),
 ]
+
+# kolom yang benar-benar dipakai fitur model: hanya ini yang diperingatkan bila hilang (kolom lain boleh tidak ada)
+MODEL_NEEDS = ["ts", "tgl_lahir", "nikah", "prov", "kab", "kec", "kel", "alamat", "pend", "nilai", "bidang", "bagian", "level",
+               "lama_kerja_terakhir", "durasi_terlama", "jabatan_terlama", "pernah_sales", "lama_sales", "pernah_crew", "lama_crew",
+               "terakhir_kerja", "kuliah", "rencana_kuliah"]
 
 # ---- fitur yang masuk model ----
 NUM_FEATURES = [
@@ -72,10 +88,10 @@ def _yn(x) -> float:
 
 
 def _ord_years(x) -> float:
-    v = _s(x).lower().replace(" ", "")
+    v = re.sub(r"^ya,?", "", _s(x).lower().replace(" ", ""))
     if not v:
         return np.nan
-    if "fresh" in v:
+    if "fresh" in v or v.startswith("belumpernah"):
         return 0.0
     if v.startswith("<1"):
         return 1.0
@@ -135,22 +151,31 @@ def _parse_dt(s) -> pd.Series:
         return s
     txt = s.astype(str).str.strip()
     iso = txt.str.match(r"^\d{4}-\d{1,2}-\d{1,2}")
-    out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+    parts = []
     if iso.any():
-        out[iso] = pd.to_datetime(txt[iso], errors="coerce")
+        parts.append(pd.to_datetime(txt[iso], errors="coerce"))
     if (~iso).any():
-        out[~iso] = pd.to_datetime(txt[~iso], errors="coerce", dayfirst=True)
-    return out
+        parts.append(pd.to_datetime(txt[~iso], errors="coerce", dayfirst=True))
+    out = pd.concat(parts).reindex(s.index) if parts else pd.Series(pd.NaT, index=s.index)
+    out = pd.to_datetime(out, errors="coerce")
+    return out.where(out.dt.year.between(1900, 2100))
 
 
 def build_features(raw: pd.DataFrame, geo: GeoResolver | None = None, placement_default: str = "Cisauk") -> pd.DataFrame:
     df = rename_columns(raw).copy()
-    missing = [short for _p, short in HEADER_MAP if short not in df.columns and short != "label"]
+    if "sales_exp" in df.columns:  # form baru: 1 pertanyaan "Tidak pernah / Ya, < 1 tahun / ..." -> pernah + lama
+        df["pernah_sales"], df["lama_sales"] = df["sales_exp"], df["sales_exp"]
+    if "crew_exp" in df.columns:
+        df["pernah_crew"], df["lama_crew"] = df["crew_exp"], df["crew_exp"]
+    missing = [short for short in MODEL_NEEDS if short not in df.columns]
     if missing:  # header form berubah / kolom hilang -> jangan crash, isi kosong (model tetap jalan dgn imputasi)
         import warnings
         warnings.warn(f"Kolom form tidak ditemukan, diisi kosong: {missing}")
         for m in missing:
             df[m] = np.nan
+    for _p, short in HEADER_MAP:  # kolom lama yang tidak ada di form baru (jk, hamil, sekolah, ...) tidak dipakai model -> isi kosong
+        if short not in df.columns and short != "label":
+            df[short] = np.nan
     geo = geo or GeoResolver()
     out = pd.DataFrame(index=df.index)
 
