@@ -277,7 +277,7 @@ with st.container(key="card"):
         st.markdown('<p class="hint"><span class="req">*</span> menandakan kolom wajib diisi</p>', unsafe_allow_html=True)
         sect("Data diri")
         c1, c2 = st.columns(2)
-        c1.date_input(label("Tanggal lahir"), key="f_tgl", min_value=date(1960, 1, 1), max_value=date.today(), format="DD/MM/YYYY")
+        c1.date_input(label("Tanggal lahir"), key="f_tgl", min_value=date(1960, 1, 1), max_value=date(date.today().year - 16, 12, 31), format="DD/MM/YYYY")
         c2.selectbox(label("Status pernikahan"), NIKAH, index=None, placeholder="Pilih status", key="f_nikah")
         sect("Domisili saat ini")
         st.selectbox(label("Provinsi"), prov_list, index=None, placeholder="Pilih provinsi", key="f_prov")
