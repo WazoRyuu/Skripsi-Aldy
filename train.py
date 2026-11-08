@@ -1,5 +1,5 @@
 """Training + evaluasi.  Pakai:  python train.py --data "Form Loker Tele Marketing (Jawaban) (1).xlsx" """
-import argparse, json, sys, warnings
+import argparse, json, re, sys, warnings
 from pathlib import Path
 import joblib, numpy as np, pandas as pd
 from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score, brier_score_loss
@@ -49,15 +49,39 @@ def cv_oof(name, X, y, repeats=5):
     return oof
 
 
+def label_from_master(raw: pd.DataFrame, master_path) -> pd.DataFrame:
+    """Label dari Excel induk (build_master.py -> diisi/dikonfirmasi perusahaan): cocokkan baris form lama lewat NIK/No HP + nama dan waktu pengisian."""
+    from harmonize import person_key
+    m = pd.read_excel(master_path, sheet_name="Data_Pelamar")
+    m = m[m["Sumber Form"].astype(str).str.startswith("Form Lama") & m["Status Lanjut Interview"].notna()].copy()
+    m["_k"] = [person_key(k, n, h) + "|" + pd.Timestamp(t).strftime("%Y%m%d%H%M") for k, n, h, t in
+               zip(m["NIK/KTP"], m["Nama"], m["No HP"], m["Waktu Pengisian"])]
+    lab = dict(zip(m["_k"], m["Status Lanjut Interview"].eq("Lanjut Interview")))
+    cols = {re.sub(r"\s+", " ", str(c)).strip().lower(): c for c in raw.columns}
+    g = lambda p: raw[next(v for k, v in cols.items() if k.startswith(p))]
+    ts = pd.to_datetime(g("timestamp"), errors="coerce")
+    keys = [person_key(k, n, h) + "|" + (t.strftime("%Y%m%d%H%M") if pd.notna(t) else "") for k, n, h, t in zip(g("nomor ktp"), g("nama lengkap"), g("nomor hp"), ts)]
+    raw = raw.copy()
+    raw["Lanjut Interview"] = [lab.get(k, np.nan) for k in keys]
+    n0 = len(raw)
+    raw = raw[raw["Lanjut Interview"].notna()].copy()
+    raw["Lanjut Interview"] = raw["Lanjut Interview"].astype(bool)
+    print(f"Label dari Excel induk: {len(raw)} dari {n0} baris form lama berlabel")
+    return raw
+
+
 def main(a):
     raw = pd.read_excel(a.data)
-    if not a.rekap and "Lanjut Interview" not in raw.columns:  # FORM BARU: label dari kolom "Status Seleksi Berkas" yang diisi recruiter
+    if a.master:
+        raw = label_from_master(raw, a.master)
+        a.all_dates = True  # label sudah dikonfirmasi perusahaan untuk semua periode
+    if not a.master and not a.rekap and "Lanjut Interview" not in raw.columns:  # FORM BARU: label dari kolom "Status Seleksi Berkas" yang diisi recruiter
         col = next((c for c in raw.columns if str(c).strip().lower().startswith("status seleksi berkas")), None)
         if col is None:
             raise SystemExit("Tidak ada label: beri --rekap Rekap_All.xlsx, atau pakai form baru dengan kolom 'Status Seleksi Berkas'.")
         raw = raw[raw[col].astype(str).str.strip().ne("") & raw[col].notna()].copy()  # hanya yang sudah direview recruiter
         raw["Lanjut Interview"] = raw[col].astype(str).str.strip().str.lower().str.startswith("lolos")
-    if a.rekap:  # label ulang dari Rekap_All (No HP + nama), menggantikan kolom "Lanjut Interview" hasil XLOOKUP nama
+    if a.rekap and not a.master:  # label ulang dari Rekap_All (No HP + nama), menggantikan kolom "Lanjut Interview" hasil XLOOKUP nama
         raw["Lanjut Interview"] = relabel(raw, a.rekap).astype(bool)
     geo = GeoResolver()
     feat = dedupe_applicants(build_features(raw, geo, DEFAULT_PLACEMENT))
@@ -122,6 +146,7 @@ def main(a):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", required=True)
+    ap.add_argument("--master", help="path Excel induk (Data_Induk_Pelamar_*.xlsx) berisi Status Lanjut Interview; menggantikan --rekap")
     ap.add_argument("--rekap", help="path Rekap_All.xlsx untuk relabel lewat No HP")
     ap.add_argument("--model", choices=["logreg", "rf", "xgb"])
     ap.add_argument("--all-dates", action="store_true", help="pakai semua tanggal (untuk form baru yang labelnya lengkap); default: hanya RELIABLE_WINDOWS")

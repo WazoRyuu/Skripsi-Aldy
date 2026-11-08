@@ -25,6 +25,8 @@ tests/            tes logika geo, sync, dan prediksi
 ```bash
 pip install -r requirements-train.txt     # training / sync (app web cukup requirements.txt)
 python train.py --data "Form Loker Tele Marketing (Jawaban) (1).xlsx" --rekap Rekap_All.xlsx   # latih ulang + relabel
+python train.py --data "Form Loker Tele Marketing (Jawaban) (1).xlsx" --master Data_Induk_Pelamar_Terisi.xlsx --model logreg   # latih dari Excel induk (label dikonfirmasi perusahaan, semua periode)
+python build_master.py --help   # membuat Excel induk dari semua form + Rekap_All + Screening
 python predict.py --data pelamar_baru.xlsx --out hasil.xlsx                # uji manual
 python tests/test_pipeline.py                                              # tes
 ```
